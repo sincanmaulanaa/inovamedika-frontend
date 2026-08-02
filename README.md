@@ -73,11 +73,30 @@ src/
 State ownership is intentionally strict:
 
 - TanStack Query owns all server state and its cache.
-- Axios only transports requests; it has no retry or cache layer.
+- Axios transports requests and only retries an unauthorized protected request
+  once after a single-flight session refresh. It has no cache or general retry
+  layer.
 - Zustand only owns sidebar and idle-warning visibility and is not persisted.
 - URL parameters will own filters, pagination, dates, and selected resource IDs.
 - Access tokens stay in the in-memory auth module; refresh credentials belong in
   an `HttpOnly` cookie managed by the backend.
+
+## Authentication lifecycle
+
+- Login, refresh, and logout use `/login`, `/refresh`, and `/logout` under the
+  configured API base URL.
+- The access token and CSRF token stay in the in-memory credential module. They
+  are excluded from TanStack Query data and browser storage.
+- The rotating refresh credential is only handled by the backend through an
+  `HttpOnly`, `SameSite=Strict` cookie.
+- Reloading the page restores the session through the browser-wide CSRF cookie
+  and the refresh endpoint. Concurrent unauthorized requests share one refresh
+  operation and each request is retried at most once.
+- Protected routes return to login when the session is no longer valid. Menus are
+  filtered by role, while the backend remains authoritative for authorization.
+- A warning appears after 13 minutes without user activity. The local session
+  ends after 15 minutes unless the user extends it; the backend remains
+  authoritative for idle and absolute expiry.
 
 ## Typed API requests
 
