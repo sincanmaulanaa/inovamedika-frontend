@@ -1,0 +1,8 @@
+{
+  "threshold": 0,
+  "reporters": ["console"],
+  "minLines": 8,
+  "minTokens": 60,
+  "gitignore": true,
+  "ignore": ["**/*.test.ts", "**/*.test.tsx", "**/test/**"]
+}
