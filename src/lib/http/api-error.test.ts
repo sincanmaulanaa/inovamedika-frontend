@@ -46,8 +46,31 @@ describe('normalizeApiError', () => {
 
     expect(normalizeApiError(error)).toMatchObject({
       code: 'NETWORK_ERROR',
-      message: 'Tidak dapat terhubung ke server.',
+      message: 'Layanan belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
       status: null,
     })
+  })
+
+  it('does not expose an HTTP status in fallback copy', () => {
+    const response: AxiosResponse = {
+      config: requestConfig,
+      data: '<html>upstream failure</html>',
+      headers: {},
+      status: 502,
+      statusText: 'Bad Gateway',
+    }
+    const error = new AxiosError(
+      'Request failed with status code 502',
+      'ERR_BAD_RESPONSE',
+      requestConfig,
+      undefined,
+      response,
+    )
+    const normalizedError = normalizeApiError(error)
+
+    expect(normalizedError.message).toBe(
+      'Layanan sedang mengalami kendala. Coba lagi beberapa saat lagi.',
+    )
+    expect(normalizedError.message).not.toContain('502')
   })
 })

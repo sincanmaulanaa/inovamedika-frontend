@@ -1,9 +1,10 @@
 import { Toasty } from '@cloudflare/kumo/components/toast'
 import { TooltipProvider } from '@cloudflare/kumo/components/tooltip'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { ReactNode } from 'react'
 import { createAppQueryClient } from '@/app/query-client'
+import { AuthSessionProvider } from '@/features/auth/auth-session.provider'
 
 const appQueryClient = createAppQueryClient()
 const shouldShowDevtools =
@@ -11,13 +12,19 @@ const shouldShowDevtools =
 
 interface AppProvidersProps {
   readonly children: ReactNode
+  readonly queryClient?: QueryClient
 }
 
-export function AppProviders({ children }: AppProvidersProps) {
+export function AppProviders({
+  children,
+  queryClient = appQueryClient,
+}: AppProvidersProps) {
   return (
-    <QueryClientProvider client={appQueryClient}>
+    <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toasty>{children}</Toasty>
+        <Toasty>
+          <AuthSessionProvider>{children}</AuthSessionProvider>
+        </Toasty>
       </TooltipProvider>
       {shouldShowDevtools ? <ReactQueryDevtools initialIsOpen={false} /> : null}
     </QueryClientProvider>

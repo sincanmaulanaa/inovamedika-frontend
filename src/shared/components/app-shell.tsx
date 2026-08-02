@@ -14,11 +14,15 @@ import {
   XIcon,
   type Icon,
 } from '@phosphor-icons/react'
-import { NavLink, Outlet } from 'react-router'
-import { IdleWarningDialog } from '@/shared/components/idle-warning-dialog'
+import { NavLink, Outlet, useNavigate } from 'react-router'
+import { useLogoutMutation } from '@/features/auth/auth.mutations'
+import { useAuthSession } from '@/features/auth/auth.queries'
+import { SessionActivityMonitor } from '@/features/auth/session-activity-monitor'
+import { roleLabels, type UserRole } from '@/features/auth/auth.types'
 import { useUiStore } from '@/shared/stores/ui.store'
 
 interface NavigationItem {
+  readonly allowedRoles: readonly UserRole[]
   readonly icon: Icon
   readonly isAvailable: boolean
   readonly label: string
@@ -27,36 +31,42 @@ interface NavigationItem {
 
 const navigationItems = [
   {
+    allowedRoles: ['ADMINISTRATOR', 'REGISTRATION_OFFICER', 'DOCTOR'],
     icon: HouseIcon,
     isAvailable: true,
     label: 'Dashboard',
     path: '/dashboard',
   },
   {
+    allowedRoles: ['ADMINISTRATOR', 'REGISTRATION_OFFICER'],
     icon: UsersThreeIcon,
     isAvailable: false,
     label: 'Pasien',
     path: '/patients',
   },
   {
+    allowedRoles: ['ADMINISTRATOR', 'REGISTRATION_OFFICER'],
     icon: CalendarBlankIcon,
     isAvailable: false,
     label: 'Pendaftaran',
     path: '/registrations',
   },
   {
+    allowedRoles: ['ADMINISTRATOR', 'REGISTRATION_OFFICER'],
     icon: ListNumbersIcon,
     isAvailable: false,
     label: 'Antrean',
     path: '/queues',
   },
   {
+    allowedRoles: ['DOCTOR'],
     icon: StethoscopeIcon,
     isAvailable: false,
     label: 'Pemeriksaan',
     path: '/examinations',
   },
   {
+    allowedRoles: ['DOCTOR'],
     icon: ClipboardTextIcon,
     isAvailable: false,
     label: 'Riwayat medis',
@@ -67,11 +77,13 @@ const navigationItems = [
 interface SidebarContentProps {
   readonly isCollapsed: boolean
   readonly onNavigate?: () => void
+  readonly role: UserRole
 }
 
 function SidebarContent({
   isCollapsed,
   onNavigate = () => undefined,
+  role,
 }: SidebarContentProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-kumo-base">
@@ -92,20 +104,22 @@ function SidebarContent({
         aria-label="Navigasi utama"
         className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-4"
       >
-        {navigationItems.map((item) => (
-          <NavigationItemLink
-            key={item.path}
-            item={item}
-            isCollapsed={isCollapsed}
-            onNavigate={onNavigate}
-          />
-        ))}
+        {navigationItems
+          .filter((item) => canRoleAccessNavigation(item, role))
+          .map((item) => (
+            <NavigationItemLink
+              key={item.path}
+              item={item}
+              isCollapsed={isCollapsed}
+              onNavigate={onNavigate}
+            />
+          ))}
       </nav>
 
       <div className="border-t border-kumo-line px-4 py-3">
         <div className={isCollapsed ? 'sr-only' : undefined}>
           <Text variant="secondary" size="sm">
-            Sistem internal klinik
+            {roleLabels[role]}
           </Text>
         </div>
       </div>
@@ -172,10 +186,30 @@ function NavigationItemLink({
 }
 
 export function AppShell() {
+  const navigate = useNavigate()
+  const sessionQuery = useAuthSession()
+  const logoutMutation = useLogoutMutation()
   const isSidebarCollapsed = useUiStore((state) => state.isSidebarCollapsed)
   const isMobileSidebarOpen = useUiStore((state) => state.isMobileSidebarOpen)
   const setMobileSidebarOpen = useUiStore((state) => state.setMobileSidebarOpen)
   const toggleSidebar = useUiStore((state) => state.toggleSidebar)
+  const profile = sessionQuery.data?.profile
+
+  if (!profile) {
+    return null
+  }
+
+  const handleLogout = () => {
+    void logoutMutation
+      .mutateAsync()
+      .catch(() => undefined)
+      .finally(() => {
+        navigate('/login', {
+          replace: true,
+          state: { notice: 'Anda telah keluar.' },
+        })
+      })
+  }
 
   return (
     <div className="min-h-svh bg-kumo-base text-kumo-default md:grid md:grid-cols-[auto_minmax(0,1fr)]">
@@ -192,7 +226,7 @@ export function AppShell() {
           isSidebarCollapsed ? 'w-20' : 'w-64'
         }`}
       >
-        <SidebarContent isCollapsed={isSidebarCollapsed} />
+        <SidebarContent isCollapsed={isSidebarCollapsed} role={profile.role} />
       </aside>
 
       {isMobileSidebarOpen ? (
@@ -220,6 +254,7 @@ export function AppShell() {
             <SidebarContent
               isCollapsed={false}
               onNavigate={() => setMobileSidebarOpen(false)}
+              role={profile.role}
             />
           </aside>
         </div>
@@ -257,9 +292,23 @@ export function AppShell() {
               </Text>
             </div>
           </div>
-          <Badge variant="info" appearance="dot">
-            API belum terhubung
-          </Badge>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="hidden min-w-0 text-right sm:block">
+              <Text as="span" variant="heading3" truncate>
+                {profile.displayName}
+              </Text>
+              <Text size="sm" variant="secondary" truncate>
+                {roleLabels[profile.role]}
+              </Text>
+            </div>
+            <Button
+              loading={logoutMutation.isPending}
+              onClick={handleLogout}
+              variant="secondary"
+            >
+              Keluar
+            </Button>
+          </div>
         </header>
 
         <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 md:px-6">
@@ -267,7 +316,14 @@ export function AppShell() {
         </main>
       </div>
 
-      <IdleWarningDialog />
+      <SessionActivityMonitor />
     </div>
   )
+}
+
+function canRoleAccessNavigation(
+  item: NavigationItem,
+  role: UserRole,
+): boolean {
+  return item.allowedRoles.includes(role)
 }
