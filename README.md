@@ -33,6 +33,16 @@ Only public browser configuration may use the `VITE_` prefix. Never put tokens,
 credentials, patient identifiers, or clinical content in frontend environment
 files.
 
+## Security checks
+
+- Keep local values in `.env.local`; the file is ignored by Git.
+- Treat every `VITE_` value as public because it is included in the browser bundle.
+- Scan the full local history with `gitleaks git --redact .` before publishing
+  security-sensitive changes.
+- GitHub Actions scans every push and pull request for leaked secrets and runs the
+  complete quality suite.
+- Dependabot checks pnpm dependencies and GitHub Actions each week.
+
 ## Commands
 
 ```bash
