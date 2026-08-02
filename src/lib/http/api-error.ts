@@ -50,7 +50,8 @@ export function normalizeApiError(error: unknown): ApiError {
 
   if (!axios.isAxiosError(error)) {
     return new ApiError({
-      message: 'Terjadi kesalahan yang tidak terduga.',
+      message:
+        'Layanan sedang mengalami kendala. Coba lagi beberapa saat lagi.',
       code: 'UNEXPECTED_ERROR',
       status: null,
       cause: error,
@@ -96,14 +97,14 @@ function getTransportErrorMessage(
   status: number | null,
 ): string {
   if (axiosCode === 'ECONNABORTED') {
-    return 'Waktu permintaan habis. Silakan coba lagi.'
+    return 'Layanan membutuhkan waktu lebih lama dari biasanya. Coba lagi.'
   }
 
   if (status !== null) {
-    return `Permintaan gagal dengan status ${status}.`
+    return 'Layanan sedang mengalami kendala. Coba lagi beberapa saat lagi.'
   }
 
-  return 'Tidak dapat terhubung ke server.'
+  return 'Layanan belum dapat dihubungi. Periksa koneksi lalu coba lagi.'
 }
 
 function getTransportErrorCode(
