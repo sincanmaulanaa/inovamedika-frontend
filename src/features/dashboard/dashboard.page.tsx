@@ -7,7 +7,9 @@ import {
   ListNumbersIcon,
   UsersThreeIcon,
 } from '@phosphor-icons/react'
+import { useQuery } from '@tanstack/react-query'
 import { MetricCard } from '@/features/dashboard/metric-card'
+import { dashboardSummaryQueryOptions } from './dashboard.queries'
 
 const metricDefinitions = [
   {
@@ -58,6 +60,8 @@ const workflowSteps = [
 ] as const
 
 export function DashboardPage() {
+  const { data: metrics } = useQuery(dashboardSummaryQueryOptions())
+
   return (
     <div className="grid gap-8">
       <section className="grid gap-1.5" aria-labelledby="dashboard-title">
@@ -65,8 +69,7 @@ export function DashboardPage() {
           Ringkasan operasional
         </Text>
         <Text variant="secondary">
-          Pantau aktivitas klinik untuk tanggal layanan hari ini. Nilai tetap
-          kosong sampai endpoint dashboard terhubung.
+          Pantau aktivitas klinik untuk tanggal layanan hari ini.
         </Text>
       </section>
 
@@ -75,9 +78,26 @@ export function DashboardPage() {
           Metrik hari ini
         </Text>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {metricDefinitions.map((metric) => (
-            <MetricCard key={metric.id} {...metric} />
-          ))}
+          <MetricCard
+            {...metricDefinitions[0]}
+            value={metrics?.totalPatients ?? 0}
+          />
+          <MetricCard
+            {...metricDefinitions[1]}
+            value={metrics?.totalRegistrations ?? 0}
+          />
+          <MetricCard
+            {...metricDefinitions[2]}
+            value={(metrics?.waitingPatients ?? 0) + (metrics?.completedVisits ?? 0)}
+          />
+          <MetricCard
+            {...metricDefinitions[3]}
+            value={metrics?.waitingPatients ?? 0}
+          />
+          <MetricCard
+            {...metricDefinitions[4]}
+            value={metrics?.completedVisits ?? 0}
+          />
         </div>
       </section>
 

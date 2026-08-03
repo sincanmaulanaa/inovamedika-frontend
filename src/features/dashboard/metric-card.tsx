@@ -8,6 +8,7 @@ interface MetricCardProps {
   readonly icon: Icon
   readonly id: string
   readonly label: string
+  readonly value?: number
 }
 
 export function MetricCard({
@@ -15,8 +16,10 @@ export function MetricCard({
   icon: IconComponent,
   id,
   label,
+  value,
 }: MetricCardProps) {
   const labelId = `${id}-label`
+  const hasValue = value !== undefined
 
   return (
     <LayerCard
@@ -27,16 +30,18 @@ export function MetricCard({
         <span className="grid size-9 place-items-center rounded-lg bg-kumo-tint text-kumo-strong ring ring-kumo-line">
           <IconComponent aria-hidden="true" className="size-5" />
         </span>
-        <Badge variant="neutral" appearance="dot">
-          Menunggu data API
-        </Badge>
+        {!hasValue && (
+          <Badge variant="neutral" appearance="dot">
+            Menunggu data API
+          </Badge>
+        )}
       </div>
       <dl className="grid gap-1.5">
         <Text as="dt" variant="secondary">
           <span id={labelId}>{label}</span>
         </Text>
         <Text as="dd" variant="heading2">
-          —
+          {hasValue ? value.toLocaleString('id-ID') : '—'}
         </Text>
         <Text as="dd" variant="secondary" size="sm">
           {description}

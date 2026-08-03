@@ -59,8 +59,8 @@ describe('app router', () => {
       screen.getByRole('navigation', { name: 'Navigasi utama' }),
     )
 
-    expect(navigation.getByText('Pemeriksaan')).toBeInTheDocument()
-    expect(navigation.getByText('Riwayat medis')).toBeInTheDocument()
+    expect(navigation.getByText('Antrean')).toBeInTheDocument()
+    expect(navigation.getByText('Pasien')).toBeInTheDocument()
     expect(navigation.queryByText('Pendaftaran')).not.toBeInTheDocument()
   })
 })
