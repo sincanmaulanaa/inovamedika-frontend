@@ -12,7 +12,11 @@ export interface MedicalRecordData {
   readonly polyclinicName: string
   readonly visitDate: string
   readonly subjective: string | null
-  readonly objective: string | null
+  readonly bloodPressureSystolic: number | null
+  readonly bloodPressureDiastolic: number | null
+  readonly temperatureCelsius: number | null
+  readonly weightKg: number | null
+  readonly heightCm: number | null
   readonly assessment: string | null
   readonly plan: string | null
   readonly status: MedicalRecordStatus
@@ -21,6 +25,18 @@ export interface MedicalRecordData {
   readonly rowVersion: number
   readonly createdAt: string
   readonly updatedAt: string
+  readonly actions: readonly MedicalActionData[]
+}
+
+export interface MedicalActionData {
+  readonly id: string
+  readonly actionName: string
+  readonly notes: string | null
+}
+
+export interface MedicalActionMutationData {
+  readonly actionName: string
+  readonly notes?: string | null | undefined
 }
 
 export interface MedicalRecordPagination {
@@ -46,24 +62,39 @@ export interface MedicalRecordListQuery {
 export interface MedicalRecordMutationData {
   readonly registrationId: string
   readonly subjective: string | null
-  readonly objective: string | null
+  readonly bloodPressureSystolic: number | null
+  readonly bloodPressureDiastolic: number | null
+  readonly temperatureCelsius: number | null
+  readonly weightKg: number | null
+  readonly heightCm: number | null
   readonly assessment: string | null
   readonly plan: string | null
+  readonly actions: readonly MedicalActionMutationData[]
 }
 
 export interface MedicalRecordUpdateData {
   readonly subjective?: string | null
-  readonly objective?: string | null
+  readonly bloodPressureSystolic?: number | null
+  readonly bloodPressureDiastolic?: number | null
+  readonly temperatureCelsius?: number | null
+  readonly weightKg?: number | null
+  readonly heightCm?: number | null
   readonly assessment?: string | null
   readonly plan?: string | null
+  readonly actions?: readonly MedicalActionMutationData[]
   readonly rowVersion: number
 }
 
 export interface MedicalRecordAmendmentData {
   readonly subjective: string | null
-  readonly objective: string | null
+  readonly bloodPressureSystolic: number | null
+  readonly bloodPressureDiastolic: number | null
+  readonly temperatureCelsius: number | null
+  readonly weightKg: number | null
+  readonly heightCm: number | null
   readonly assessment: string | null
   readonly plan: string | null
+  readonly actions: readonly MedicalActionMutationData[]
   readonly amendmentReason: string
   readonly rowVersion: number
 }

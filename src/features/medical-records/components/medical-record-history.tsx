@@ -30,24 +30,39 @@ export function MedicalRecordHistory({ records, currentDoctorName }: MedicalReco
               <Text as="strong" bold>{record.visitDate}</Text>
               <Text variant="secondary">{record.polyclinicName}</Text>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              <div>
-                <Text as="strong" bold>Subjektif (S)</Text>
+            <dl className="grid gap-2 text-sm">
+              <div className="grid">
+                <Text variant="secondary">S - Subjektif</Text>
                 <Text variant="body">{record.subjective || '-'}</Text>
               </div>
-              <div>
-                <Text as="strong" bold>Objektif (O)</Text>
-                <Text variant="body">{record.objective || '-'}</Text>
+              <div className="grid">
+                <Text variant="secondary">O - Objektif</Text>
+                <Text variant="body">
+                  {[
+                    record.bloodPressureSystolic && record.bloodPressureDiastolic ? `TD: ${record.bloodPressureSystolic}/${record.bloodPressureDiastolic} mmHg` : null,
+                    record.temperatureCelsius ? `Suhu: ${record.temperatureCelsius} °C` : null,
+                    record.weightKg ? `BB: ${record.weightKg} kg` : null,
+                    record.heightCm ? `TB: ${record.heightCm} cm` : null,
+                  ].filter(Boolean).join('; ') || '-'}
+                </Text>
               </div>
-              <div>
-                <Text as="strong" bold>Asesmen (A)</Text>
+              <div className="grid">
+                <Text variant="secondary">A - Asesmen</Text>
                 <Text variant="body">{record.assessment || '-'}</Text>
               </div>
-              <div>
-                <Text as="strong" bold>Plan (P)</Text>
+              <div className="grid">
+                <Text variant="secondary">P - Plan</Text>
                 <Text variant="body">{record.plan || '-'}</Text>
               </div>
-            </div>
+              {record.actions && record.actions.length > 0 && (
+                <div className="grid">
+                  <Text variant="secondary">Tindakan</Text>
+                  <Text variant="body">
+                    {record.actions.map(a => a.actionName + (a.notes ? ` (${a.notes})` : '')).join(', ')}
+                  </Text>
+                </div>
+              )}
+            </dl>
             <div className="mt-2 flex items-center justify-between border-t pt-2">
               <Text variant="secondary">Dokter: {record.doctorName}</Text>
               {currentDoctorName === record.doctorName ? (

@@ -3,10 +3,12 @@ import { Text } from '@cloudflare/kumo/components/text'
 import { Banner } from '@cloudflare/kumo/components/banner'
 import { Loader } from '@cloudflare/kumo/components/loader'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import { type FormEvent, useState, useEffect } from 'react'
+import { type FormEvent, useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useUpdateMedicalRecordMutation, useAmendMedicalRecordMutation } from './medical-record.mutations'
 import { useMedicalRecordDetailQuery } from './medical-record.queries'
+import { MedicalActionForm } from './components/medical-action-form'
+import type { MedicalActionMutationData } from './medical-record.types'
 
 export function MedicalRecordEditPage() {
   const navigate = useNavigate()
@@ -26,26 +28,84 @@ export function MedicalRecordEditPage() {
   const [plan, setPlan] = useState('')
   const [amendmentReason, setAmendmentReason] = useState('')
 
+  const [actionItems, setActionItems] = useState<readonly MedicalActionMutationData[]>([])
+
+  const formRef = useRef<HTMLFormElement>(null)
+  const currentVersionRef = useRef<number>(1)
+
   useEffect(() => {
     if (query.data) {
+      currentVersionRef.current = query.data.rowVersion
       setSubjective(query.data.subjective ?? '')
       setAssessment(query.data.assessment ?? '')
       setPlan(query.data.plan ?? '')
       
-      const obj = query.data.objective ?? ''
-      const tdMatch = obj.match(/TD:\s*(.*?)\s*mmHg/)
-      const suhuMatch = obj.match(/Suhu:\s*(.*?)\s*°C/)
-      const bbMatch = obj.match(/BB:\s*(.*?)\s*kg/)
-      const tbMatch = obj.match(/TB:\s*(.*?)\s*cm/)
-      const catMatch = obj.match(/Catatan:\s*(.*)/)
-
-      if (tdMatch) setBloodPressure(tdMatch[1] ?? '')
-      if (suhuMatch) setTemperature(suhuMatch[1] ?? '')
-      if (bbMatch) setWeight(bbMatch[1] ?? '')
-      if (tbMatch) setHeight(tbMatch[1] ?? '')
-      if (catMatch) setObjectiveNotes(catMatch[1] ?? '')
+      if (query.data.bloodPressureSystolic && query.data.bloodPressureDiastolic) {
+        setBloodPressure(`${query.data.bloodPressureSystolic}/${query.data.bloodPressureDiastolic}`)
+      } else {
+        setBloodPressure('')
+      }
+      setTemperature(query.data.temperatureCelsius?.toString() ?? '')
+      setWeight(query.data.weightKg?.toString() ?? '')
+      setHeight(query.data.heightCm?.toString() ?? '')
+      // objectiveNotes not stored cleanly as separate field anymore, skip mapping for now
+      // or we could map from actions if we wanted, but actions is a separate array.
+      if (query.data.actions) {
+        setActionItems(query.data.actions.map(a => ({
+          actionName: a.actionName,
+          notes: a.notes ?? null,
+        })))
+      }
     }
   }, [query.data])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // isFinal depends on query.data which might not be loaded yet
+      const currentIsFinal = query.data ? query.data.status !== 'DRAFT' : false
+      if (currentIsFinal || !id || !formRef.current) return
+      
+      const formData = new FormData(formRef.current)
+      const currentSubjective = String(formData.get('subjective') || '')
+      if (!currentSubjective.trim()) return
+
+      const bloodPressureParts = String(formData.get('bloodPressure') || '').split('/')
+      const bloodPressureSystolic = parseInt(bloodPressureParts[0] || '', 10)
+      const bloodPressureDiastolic = parseInt(bloodPressureParts[1] || '', 10)
+      const temperatureCelsius = parseFloat(String(formData.get('temperature')))
+      const weightKg = parseFloat(String(formData.get('weight')))
+      const heightCm = parseFloat(String(formData.get('height')))
+
+      const payload = {
+        subjective: currentSubjective,
+        bloodPressureSystolic: isNaN(bloodPressureSystolic) ? null : bloodPressureSystolic,
+        bloodPressureDiastolic: isNaN(bloodPressureDiastolic) ? null : bloodPressureDiastolic,
+        temperatureCelsius: isNaN(temperatureCelsius) ? null : temperatureCelsius,
+        weightKg: isNaN(weightKg) ? null : weightKg,
+        heightCm: isNaN(heightCm) ? null : heightCm,
+        assessment: String(formData.get('assessment') || ''),
+        plan: String(formData.get('plan') || ''),
+        actions: actionItems,
+      }
+
+      updateMutation.mutate(
+        {
+          id,
+          data: { ...payload, rowVersion: currentVersionRef.current },
+        },
+        {
+          onSuccess: (data) => {
+            currentVersionRef.current = data.rowVersion
+          },
+          onError: () => {
+            console.error('Autosave update failed')
+          }
+        }
+      )
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [id, query.data, actionItems, updateMutation])
 
   if (!id) return null
 
@@ -75,25 +135,26 @@ export function MedicalRecordEditPage() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     
-    const objectiveParts = [
-      `TD: ${bloodPressure} mmHg`,
-      `Suhu: ${temperature} °C`,
-      `BB: ${weight} kg`,
-      `TB: ${height} cm`,
-    ]
-    if (objectiveNotes) {
-      objectiveParts.push(`Catatan: ${objectiveNotes.trim()}`)
-    }
-    const objective = objectiveParts.join('; ')
+    const bloodPressureParts = bloodPressure.split('/')
+    const bloodPressureSystolic = parseInt(bloodPressureParts[0] || '', 10)
+    const bloodPressureDiastolic = parseInt(bloodPressureParts[1] || '', 10)
+    const temperatureCelsius = parseFloat(temperature)
+    const weightKg = parseFloat(weight)
+    const heightCm = parseFloat(height)
 
     if (isFinal) {
       amendMutation.mutate({
         id,
         data: {
           subjective,
-          objective,
+          bloodPressureSystolic: isNaN(bloodPressureSystolic) ? null : bloodPressureSystolic,
+          bloodPressureDiastolic: isNaN(bloodPressureDiastolic) ? null : bloodPressureDiastolic,
+          temperatureCelsius: isNaN(temperatureCelsius) ? null : temperatureCelsius,
+          weightKg: isNaN(weightKg) ? null : weightKg,
+          heightCm: isNaN(heightCm) ? null : heightCm,
           assessment,
           plan,
+          actions: actionItems,
           amendmentReason,
           rowVersion: query.data.rowVersion
         }
@@ -106,9 +167,14 @@ export function MedicalRecordEditPage() {
         id,
         data: {
           subjective,
-          objective,
+          bloodPressureSystolic: isNaN(bloodPressureSystolic) ? null : bloodPressureSystolic,
+          bloodPressureDiastolic: isNaN(bloodPressureDiastolic) ? null : bloodPressureDiastolic,
+          temperatureCelsius: isNaN(temperatureCelsius) ? null : temperatureCelsius,
+          weightKg: isNaN(weightKg) ? null : weightKg,
+          heightCm: isNaN(heightCm) ? null : heightCm,
           assessment,
           plan,
+          actions: actionItems,
           rowVersion: query.data.rowVersion
         }
       }, {
@@ -139,7 +205,7 @@ export function MedicalRecordEditPage() {
           </Text>
         </section>
 
-        <form className="grid gap-8" onSubmit={handleSubmit}>
+        <form ref={formRef} className="grid gap-8" onSubmit={handleSubmit}>
           <div className="grid gap-6">
             <div className="grid gap-1.5">
               <label className="text-sm font-medium text-(--kumo-text-primary)">
@@ -244,6 +310,9 @@ export function MedicalRecordEditPage() {
                 required
               />
             </div>
+            
+            <hr className="border-black/10 my-4" />
+            <MedicalActionForm value={actionItems} onChange={setActionItems} />
             
             {isFinal && (
               <>

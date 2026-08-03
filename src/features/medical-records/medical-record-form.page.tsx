@@ -1,9 +1,9 @@
 import { Button } from '@cloudflare/kumo/components/button'
 import { Text } from '@cloudflare/kumo/components/text'
 import { CaretLeftIcon } from '@phosphor-icons/react'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { useCreateMedicalRecordMutation, useFinalizeMedicalRecordMutation } from './medical-record.mutations'
+import { useCreateMedicalRecordMutation, useFinalizeMedicalRecordMutation, useUpdateMedicalRecordMutation } from './medical-record.mutations'
 import { useCreatePrescriptionMutation } from '@/features/prescriptions/prescription.mutations'
 import { PrescriptionForm } from '@/features/prescriptions/components/prescription-form'
 import type { PrescriptionItemMutationData } from '@/features/prescriptions/prescription.types'
@@ -11,6 +11,8 @@ import { useQuery } from '@tanstack/react-query'
 import { registrationQueryOptions } from '@/features/registrations/registration.queries'
 import { medicalRecordsQueryOptions } from './medical-record.queries'
 import { MedicalRecordHistory } from './components/medical-record-history'
+import { MedicalActionForm } from './components/medical-action-form'
+import type { MedicalActionMutationData } from './medical-record.types'
 // In MVP we assume registrationId is passed via URL query params
 
 export function MedicalRecordFormPage() {
@@ -19,6 +21,7 @@ export function MedicalRecordFormPage() {
   const registrationId = searchParams.get('registrationId')
   
   const createMutation = useCreateMedicalRecordMutation()
+  const updateMutation = useUpdateMedicalRecordMutation()
   const createPrescriptionMutation = useCreatePrescriptionMutation()
   const finalizeMutation = useFinalizeMedicalRecordMutation()
 
@@ -37,7 +40,76 @@ export function MedicalRecordFormPage() {
   })
 
   const [prescriptionItems, setPrescriptionItems] = useState<readonly PrescriptionItemMutationData[]>([])
+  const [actionItems, setActionItems] = useState<readonly MedicalActionMutationData[]>([])
   const [isFinal, setIsFinal] = useState(false)
+
+  const formRef = useRef<HTMLFormElement>(null)
+  const draftRef = useRef<{ id: string; rowVersion: number } | null>(null)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!formRef.current || !registrationId) return
+      
+      const formData = new FormData(formRef.current)
+      const subjective = String(formData.get('subjective') || '')
+      
+      // Do not autosave if subjective is empty (form hasn't been filled out meaningfully)
+      if (!subjective.trim()) return
+
+      const bloodPressureParts = String(formData.get('bloodPressure') || '').split('/')
+      const bloodPressureSystolic = parseInt(bloodPressureParts[0] || '', 10)
+      const bloodPressureDiastolic = parseInt(bloodPressureParts[1] || '', 10)
+      const temperatureCelsius = parseFloat(String(formData.get('temperature')))
+      const weightKg = parseFloat(String(formData.get('weight')))
+      const heightCm = parseFloat(String(formData.get('height')))
+
+      const payload = {
+        subjective,
+        bloodPressureSystolic: isNaN(bloodPressureSystolic) ? null : bloodPressureSystolic,
+        bloodPressureDiastolic: isNaN(bloodPressureDiastolic) ? null : bloodPressureDiastolic,
+        temperatureCelsius: isNaN(temperatureCelsius) ? null : temperatureCelsius,
+        weightKg: isNaN(weightKg) ? null : weightKg,
+        heightCm: isNaN(heightCm) ? null : heightCm,
+        assessment: String(formData.get('assessment') || ''),
+        plan: String(formData.get('plan') || ''),
+        actions: actionItems,
+      }
+
+      if (draftRef.current) {
+        updateMutation.mutate(
+          {
+            id: draftRef.current.id,
+            data: { ...payload, rowVersion: draftRef.current.rowVersion },
+          },
+          {
+            onSuccess: (data) => {
+              draftRef.current = { id: data.id, rowVersion: data.rowVersion }
+            },
+            onError: () => {
+              console.error('Autosave update failed')
+            }
+          }
+        )
+      } else {
+        createMutation.mutate(
+          {
+            registrationId,
+            ...payload,
+          },
+          {
+            onSuccess: (data) => {
+              draftRef.current = { id: data.id, rowVersion: data.rowVersion }
+            },
+            onError: () => {
+              console.error('Autosave create failed')
+            }
+          }
+        )
+      }
+    }, 30000) // Autosave every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [registrationId, actionItems, updateMutation, createMutation])
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -49,58 +121,68 @@ export function MedicalRecordFormPage() {
 
     const formData = new FormData(event.currentTarget)
 
-    const bloodPressure = String(formData.get('bloodPressure'))
-    const temperature = String(formData.get('temperature'))
-    const weight = String(formData.get('weight'))
-    const height = String(formData.get('height'))
-    const objectiveNotes = String(formData.get('objectiveNotes')).trim()
+    const bloodPressureParts = String(formData.get('bloodPressure')).split('/')
+    const bloodPressureSystolic = parseInt(bloodPressureParts[0] || '', 10)
+    const bloodPressureDiastolic = parseInt(bloodPressureParts[1] || '', 10)
+    const temperatureCelsius = parseFloat(String(formData.get('temperature')))
+    const weightKg = parseFloat(String(formData.get('weight')))
+    const heightCm = parseFloat(String(formData.get('height')))
 
-    const objectiveParts = [
-      `TD: ${bloodPressure} mmHg`,
-      `Suhu: ${temperature} °C`,
-      `BB: ${weight} kg`,
-      `TB: ${height} cm`,
-    ]
-    if (objectiveNotes) {
-      objectiveParts.push(`Catatan: ${objectiveNotes}`)
+    const payload = {
+      subjective: String(formData.get('subjective')),
+      bloodPressureSystolic: isNaN(bloodPressureSystolic) ? null : bloodPressureSystolic,
+      bloodPressureDiastolic: isNaN(bloodPressureDiastolic) ? null : bloodPressureDiastolic,
+      temperatureCelsius: isNaN(temperatureCelsius) ? null : temperatureCelsius,
+      weightKg: isNaN(weightKg) ? null : weightKg,
+      heightCm: isNaN(heightCm) ? null : heightCm,
+      assessment: String(formData.get('assessment')),
+      plan: String(formData.get('plan')),
+      actions: actionItems,
     }
 
-    createMutation.mutate(
-      {
-        registrationId,
-        subjective: String(formData.get('subjective')),
-        objective: objectiveParts.join('; '),
-        assessment: String(formData.get('assessment')),
-        plan: String(formData.get('plan')),
-      },
-      {
-        onSuccess: (medicalRecordData) => {
-          const handleNext = () => {
-            if (isFinal) {
-              finalizeMutation.mutate({ id: medicalRecordData.id, data: { rowVersion: medicalRecordData.rowVersion } }, {
-                onSuccess: () => navigate('/queues', { state: { notice: 'Rekam medis dan resep berhasil disimpan dan difinalisasi.' } }),
-                onError: () => alert('Gagal memfinalisasi rekam medis.')
-              })
-            } else {
-              navigate('/queues', { state: { notice: 'Rekam medis berhasil disimpan sebagai DRAFT.' } })
-            }
-          }
-
-          if (prescriptionItems.length > 0) {
-            createPrescriptionMutation.mutate({
-              medicalRecordId: medicalRecordData.id,
-              notes: null,
-              items: prescriptionItems
-            }, {
-              onSuccess: handleNext,
-              onError: () => alert('Gagal menyimpan resep. Rekam medis sudah tersimpan.')
-            })
-          } else {
-            handleNext()
-          }
-        },
+    const handleSuccess = (medicalRecordData: { id: string, rowVersion: number }) => {
+      const handleNext = () => {
+        if (isFinal) {
+          finalizeMutation.mutate({ id: medicalRecordData.id, data: { rowVersion: medicalRecordData.rowVersion } }, {
+            onSuccess: () => navigate('/queues', { state: { notice: 'Rekam medis dan resep berhasil disimpan dan difinalisasi.' } }),
+            onError: () => alert('Gagal memfinalisasi rekam medis.')
+          })
+        } else {
+          navigate('/queues', { state: { notice: 'Rekam medis berhasil disimpan sebagai DRAFT.' } })
+        }
       }
-    )
+
+      if (prescriptionItems.length > 0) {
+        createPrescriptionMutation.mutate({
+          medicalRecordId: medicalRecordData.id,
+          notes: null,
+          items: prescriptionItems
+        }, {
+          onSuccess: handleNext,
+          onError: () => alert('Gagal menyimpan resep. Rekam medis sudah tersimpan.')
+        })
+      } else {
+        handleNext()
+      }
+    }
+
+    if (draftRef.current) {
+      updateMutation.mutate(
+        {
+          id: draftRef.current.id,
+          data: { ...payload, rowVersion: draftRef.current.rowVersion },
+        },
+        { onSuccess: handleSuccess }
+      )
+    } else {
+      createMutation.mutate(
+        {
+          registrationId,
+          ...payload,
+        },
+        { onSuccess: handleSuccess }
+      )
+    }
   }
 
   return (
@@ -124,7 +206,7 @@ export function MedicalRecordFormPage() {
         </Text>
       </section>
 
-      <form className="grid gap-8" onSubmit={handleSubmit}>
+      <form ref={formRef} className="grid gap-8" onSubmit={handleSubmit}>
         <div className="grid gap-6">
           <div className="grid gap-1.5">
             <label className="text-sm font-medium text-(--kumo-text-primary)">
@@ -220,6 +302,10 @@ export function MedicalRecordFormPage() {
               required
             />
           </div>
+          
+          <hr className="border-black/10 my-4" />
+          
+          <MedicalActionForm value={actionItems} onChange={setActionItems} />
           
           <hr className="border-black/10 my-4" />
           
