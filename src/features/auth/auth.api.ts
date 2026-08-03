@@ -24,7 +24,7 @@ export async function login(
     schema: issuedAuthSessionSchema,
     skipAccessToken: true,
     skipAuthRecovery: true,
-    url: '/login',
+    url: '/api/v1/login',
   })
 
   return acceptIssuedSession(session)
@@ -43,7 +43,7 @@ export async function refreshSession(): Promise<AuthSession> {
     schema: issuedAuthSessionSchema,
     skipAccessToken: true,
     skipAuthRecovery: true,
-    url: '/refresh',
+    url: '/api/v1/refresh',
   })
 
   return acceptIssuedSession(session)
@@ -83,7 +83,7 @@ export async function logout(): Promise<void> {
       schema: emptyResponseSchema,
       skipAccessToken: true,
       skipAuthRecovery: true,
-      url: '/logout',
+      url: '/api/v1/logout',
     })
   } finally {
     clearAuthCredentials()

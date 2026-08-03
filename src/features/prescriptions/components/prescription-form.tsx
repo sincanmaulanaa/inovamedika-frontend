@@ -97,10 +97,8 @@ export function PrescriptionForm({ items, onChange }: PrescriptionFormProps) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-1.5">
-                  <label className="text-sm font-medium text-(--kumo-text-primary)">
-                    Jumlah
-                  </label>
                   <Input
+                    label="Jumlah"
                     name={`quantity-${index}`}
                     type="number"
                     min={1}
@@ -110,10 +108,8 @@ export function PrescriptionForm({ items, onChange }: PrescriptionFormProps) {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <label className="text-sm font-medium text-(--kumo-text-primary)">
-                    Instruksi Dosis
-                  </label>
                   <Input
+                    label="Instruksi Dosis"
                     name={`dosage-${index}`}
                     placeholder="Contoh: 3 x sehari 1 tablet sesudah makan"
                     value={item.dosageInstructions}
@@ -124,10 +120,8 @@ export function PrescriptionForm({ items, onChange }: PrescriptionFormProps) {
               </div>
 
               <div className="grid gap-1.5">
-                <label className="text-sm font-medium text-(--kumo-text-primary)">
-                  Catatan Tambahan (Opsional)
-                </label>
                 <Input
+                  label="Catatan Tambahan (Opsional)"
                   name={`notes-${index}`}
                   placeholder="Catatan tambahan untuk apoteker"
                   value={item.notes ?? ''}
