@@ -34,7 +34,7 @@ describe('authentication API', () => {
         headers: { 'X-CSRF-Token': issuedSession.csrfToken },
         skipAccessToken: true,
         skipAuthRecovery: true,
-        url: '/refresh',
+        url: '/api/v1/refresh',
       }),
     )
   })

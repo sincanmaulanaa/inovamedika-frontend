@@ -219,7 +219,7 @@ export function LoginPage() {
                 />
 
                 <Button
-                  className="w-full"
+                  className="w-full text-center"
                   loading={loginMutation.isPending}
                   type="submit"
                   variant="primary"

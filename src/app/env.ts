@@ -5,7 +5,7 @@ const apiBaseUrlSchema = z.string().trim().min(1).refine(isValidApiBaseUrl, {
 })
 
 const environmentSchema = z.object({
-  VITE_API_BASE_URL: apiBaseUrlSchema.default('/api/v1'),
+  VITE_API_BASE_URL: apiBaseUrlSchema.default(''),
   VITE_API_TIMEOUT_MS: z.coerce
     .number()
     .int()

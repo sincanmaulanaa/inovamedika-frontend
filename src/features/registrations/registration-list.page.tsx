@@ -66,6 +66,7 @@ export function RegistrationListPage() {
       <LayerCard className="grid gap-4 p-4">
         <div className="flex flex-wrap gap-2">
           <Input
+            aria-label="Cari nama atau NIK pasien"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             name="search"
